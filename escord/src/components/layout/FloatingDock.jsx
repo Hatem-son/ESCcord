@@ -144,7 +144,7 @@ export function FloatingDock() {
           <button 
             onClick={() => {
               setCurrentGroup(null)
-              if (requests.length > 0) setIsRequestsOpen(!isRequestsOpen)
+              setIsRequestsOpen(!isRequestsOpen)
             }}
             className={cn(
               "w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-110 relative",
@@ -304,14 +304,19 @@ export function FloatingDock() {
 
       {/* Menus mounted above dock */}
       <AnimatePresence>
-        {isRequestsOpen && requests.length > 0 && (
+        {isRequestsOpen && (
           <motion.div 
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             className="fixed bottom-28 left-1/2 -translate-x-1/2 z-40 w-80 glass-card p-4"
           >
-            <h3 className="text-xs font-bold uppercase tracking-wider text-white/40 mb-3 ml-1">Pending Requests</h3>
+            <div className="flex items-center justify-between mb-3 ml-1">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-white/40">Friend Requests</h3>
+              <button onClick={() => setIsRequestsOpen(false)} className="text-white/40 hover:text-white transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
             <FriendRequests requests={requests} onAccept={acceptRequest} onDecline={declineRequest} />
           </motion.div>
         )}

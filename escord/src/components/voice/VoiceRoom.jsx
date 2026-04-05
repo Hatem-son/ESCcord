@@ -36,11 +36,8 @@ export function VoiceRoom({
   // Filter out the local user from participants (if backend broadcasts us)
   const otherParticipants = participants.filter(p => p.id !== profile?.id)
   
-  // If the room has no other real participants, cleanly inject mocks for visual demonstration
-  const displayParticipants = otherParticipants.length === 0 ? [
-     { id: 'mock1', username: 'Shadow', avatar: '#10b981' },
-     { id: 'mock2', username: 'Oracle', avatar: '#ef4444' }
-  ] : otherParticipants
+  // Participants mapping
+  const displayParticipants = otherParticipants
 
   return (
     <div className="h-full flex flex-col relative bg-transparent">

@@ -7,13 +7,14 @@ import { motion } from 'framer-motion'
 
 export function AddFriendModal({ isOpen, onClose }) {
   const { user } = useAuth()
-  const [query, setQuery] = useState('')
+  const [username, setUsername] = useState('')
+  const [tag, setTag] = useState('')
   const [result, setResult] = useState(null)
   const [isSearching, setIsSearching] = useState(false)
   const [status, setStatus] = useState('')
 
   useEffect(() => {
-    if (!query.includes('#') || query.split('#')[1].length < 4) {
+    if (!username || tag.length < 4) {
       setResult(null)
       return
     }
@@ -21,13 +22,12 @@ export function AddFriendModal({ isOpen, onClose }) {
     const timer = setTimeout(async () => {
       setIsSearching(true)
       setStatus('')
-      const [username, escord_id] = query.split('#')
       
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('username', username)
-        .eq('escord_id', escord_id)
+        .eq('escord_id', tag)
         .single()
 
       if (data && data.id !== user?.id) {
@@ -36,36 +36,48 @@ export function AddFriendModal({ isOpen, onClose }) {
         setResult(null)
       }
       setIsSearching(false)
-    }, 300)
+    }, 500)
 
     return () => clearTimeout(timer)
-  }, [query, user])
+  }, [username, tag, user])
 
   const sendRequest = async () => {
     if (!result) return
     setStatus('sending')
     
-    // Check if friendship already exists
-    const { data: existing } = await supabase
-      .from('friendships')
-      .select('*')
-      .or(`and(requester_id.eq.${user.id},receiver_id.eq.${result.id}),and(requester_id.eq.${result.id},receiver_id.eq.${user.id})`)
-      .maybeSingle()
+    try {
+      // Check if friendship already exists
+      const { data: existingFriendships, error: checkError } = await supabase
+        .from('friendships')
+        .select('*')
+        .or(`requester_id.eq.${user.id},receiver_id.eq.${user.id}`)
 
-    if (existing) {
-      setStatus('error')
-      return
-    }
+      if (checkError) throw checkError;
 
-    const { error } = await supabase.from('friendships').insert({
-      requester_id: user.id,
-      receiver_id: result.id,
-      status: 'pending'
-    })
-    
-    if (!error) {
-      setStatus('sent')
-    } else {
+      const existing = existingFriendships?.find(f => 
+        (f.requester_id === user.id && f.receiver_id === result.id) ||
+        (f.requester_id === result.id && f.receiver_id === user.id)
+      )
+
+      if (existing) {
+        setStatus('error')
+        return
+      }
+
+      const { error } = await supabase.from('friendships').insert({
+        requester_id: user.id,
+        receiver_id: result.id,
+        status: 'pending'
+      })
+      
+      if (!error) {
+        setStatus('sent')
+      } else {
+        console.error("Insert error:", error)
+        setStatus('error')
+      }
+    } catch (e) {
+      console.error("Add friend error:", e)
       setStatus('error')
     }
   }
@@ -77,15 +89,32 @@ export function AddFriendModal({ isOpen, onClose }) {
           You can add a friend with their ESCORD tag. It's capital sensitive!
         </p>
 
-        <div className="relative">
-          <input
-            type="text"
-            className="glass-input w-full p-3 pl-10 bg-black/40 text-lg tracking-wide focus:border-[#10b981] focus:ring-1 focus:ring-[#10b981]"
-            placeholder="Username#0000"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-          />
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+        <div className="flex gap-2 isolate">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              className="glass-input w-full p-3 pl-10 bg-black/40 text-lg tracking-wide focus:border-[#10b981] focus:ring-1 focus:ring-[#10b981] rounded-l-xl rounded-r-none"
+              placeholder="Username"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+          </div>
+          
+          <div className="relative w-32 flex items-center bg-black/40 border border-white/10 rounded-r-xl focus-within:border-[#10b981] focus-within:ring-1 focus-within:ring-[#10b981] transition-all">
+            <span className="text-white/40 font-bold px-3 select-none">#</span>
+            <input
+              type="text"
+              maxLength={4}
+              className="w-full bg-transparent text-lg tracking-wide border-none focus:ring-0 text-white/80 p-3 pl-0 placeholder-white/20"
+              placeholder="0000"
+              value={tag}
+              onChange={e => {
+                const val = e.target.value;
+                if (val.length <= 4) setTag(val);
+              }}
+            />
+          </div>
         </div>
 
         {isSearching && (

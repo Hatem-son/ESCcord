@@ -7,6 +7,62 @@ import { GroupsWidget } from '../widgets/GroupsWidget'
 import { LeftPanel } from './LeftPanel'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppContext } from '../../context/AppContext'
+import { useAuth } from '../../context/AuthContext'
+import { supabase } from '../../lib/supabase'
+import { Phone, Video } from 'lucide-react'
+
+// Subcomponent for DM operations
+function DMCallActions({ currentChannel }) {
+  const { user } = useAuth()
+  const { handleJoinVoice, voiceState, setCurrentChannel } = useAppContext()
+
+  const handleCall = async (type) => {
+    const friendId = currentChannel.friend_id
+    if (!friendId) return
+
+    const callChannel = { ...currentChannel, type: 'voice', name: 'Private Call' }
+    
+    setCurrentChannel(callChannel)
+    handleJoinVoice(callChannel)
+    
+    if (type === 'video') {
+       setTimeout(() => { 
+         voiceState?.joinRoom(callChannel.id); 
+         if (!voiceState?.isScreenSharing) voiceState?.toggleScreenShare({ video: true }) 
+       }, 50)
+    } else {
+       setTimeout(() => voiceState?.joinRoom(callChannel.id), 50)
+    }
+
+    await supabase.from('call_signals').insert({
+      caller_id: user.id,
+      receiver_id: friendId,
+      channel_id: callChannel.id,
+      status: 'ringing'
+    })
+  }
+
+  if (!currentChannel?.is_dm) return null;
+
+  return (
+    <div className="flex items-center gap-2 pr-2">
+      <button 
+        onClick={() => handleCall('voice')}
+        className="w-8 h-8 rounded-full bg-white/5 hover:bg-emerald-500/20 text-white/50 hover:text-emerald-400 transition-colors flex items-center justify-center cursor-pointer"
+        title="Start Voice Call"
+      >
+        <Phone className="w-4 h-4" />
+      </button>
+      <button 
+        onClick={() => handleCall('video')}
+        className="w-8 h-8 rounded-full bg-white/5 hover:bg-emerald-500/20 text-white/50 hover:text-emerald-400 transition-colors flex items-center justify-center cursor-pointer"
+        title="Start Video Call"
+      >
+        <Video className="w-4 h-4" />
+      </button>
+    </div>
+  )
+}
 
 export function BentoGrid() {
   const { currentGroup, currentChannel } = useAppContext()
@@ -122,8 +178,9 @@ export function BentoGrid() {
               >
                 <WidgetWrapper 
                   id="widget-chat" 
-                  title="Chat Stream" 
-                  icon="💬"
+                  title={currentChannel?.is_dm ? `Chat with ${currentChannel.name}` : "Chat Stream"}
+                  icon={currentChannel?.is_dm ? "@" : "💬"}
+                  headerAction={<DMCallActions currentChannel={currentChannel} />}
                   className="w-full h-full shadow-[0_0_40px_rgba(139,92,246,0.1)]"
                 >
                   <ChatWidget />
