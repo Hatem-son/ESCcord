@@ -18,6 +18,27 @@ export function CreateGroupModal({ isOpen, onClose }) {
   const [customImage, setCustomImage] = useState(null)
   const [selectedFriends, setSelectedFriends] = useState([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [friends, setFriends] = useState([])
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchFriends = async () => {
+      const { data: accepted1 } = await supabase
+        .from('friendships')
+        .select('*, friend:profiles!receiver_id(*)')
+        .eq('requester_id', user.id)
+        .eq('status', 'accepted')
+        
+      const { data: accepted2 } = await supabase
+        .from('friendships')
+        .select('*, friend:profiles!requester_id(*)')
+        .eq('receiver_id', user.id)
+        .eq('status', 'accepted')
+
+      setFriends([...(accepted1||[]), ...(accepted2||[])])
+    }
+    fetchFriends()
+  }, [user])
 
   const resetAndClose = () => {
     setStep(1)
@@ -158,12 +179,16 @@ export function CreateGroupModal({ isOpen, onClose }) {
                   <motion.div key="s2" variants={slideVariants} initial="initial" animate="enter" exit="exit" className="absolute inset-0 flex flex-col">
                     <label className="block text-sm font-bold mb-4 text-white/70 uppercase tracking-wider">Invite Friends (Optional)</label>
                     <div className="flex-1 bg-black/40 rounded-2xl border border-white/5 p-2 overflow-y-auto mb-4 space-y-1">
-                      {['Echo#8831', 'Shadow#9921', 'Zero#0001', 'Ghost#4444'].map(f => {
+                      {friends.length === 0 && <div className="text-white/40 text-sm text-center py-4">No friends found to invite.</div>}
+                      {friends.map(friendObj => {
+                        const profile = friendObj.friend
+                        if (!profile) return null
+                        const f = `${profile.username}#${profile.escord_id || '0000'}`
                         const isSelected = selectedFriends.includes(f)
                         return (
                           <div key={f} onClick={() => isSelected ? setSelectedFriends(p => p.filter(x => x !== f)) : setSelectedFriends(p => [...p, f])} className={cn("flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all", isSelected ? "bg-[#8b5cf6]/20 border border-[#8b5cf6]/50" : "hover:bg-white/5 border border-transparent")}>
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold">{f.charAt(0)}</div>
+                              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm" style={{ backgroundColor: profile.avatar_color || '#8b5cf6' }}>{profile.username.charAt(0).toUpperCase()}</div>
                               <span className="font-semibold text-sm">{f}</span>
                             </div>
                             <div className={cn("w-5 h-5 rounded-md flex items-center justify-center transition-colors", isSelected ? "bg-[#8b5cf6]" : "bg-white/10")}>{isSelected && <Check className="w-3.5 h-3.5 text-white" />}</div>

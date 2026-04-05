@@ -11,6 +11,7 @@ import { VoiceWidget } from '../components/widgets/VoiceWidget'
 import { WatchWidget } from '../components/widgets/WatchWidget'
 import { GroupsWidget } from '../components/widgets/GroupsWidget'
 import { IncomingCallModal } from '../components/voice/IncomingCallModal'
+import { OutgoingCallModal } from '../components/voice/OutgoingCallModal'
 
 export default function EscordApp() {
   return (
@@ -70,6 +71,7 @@ export default function EscordApp() {
       </div>
       
       <IncomingCallModal />
+      <OutgoingCallModal />
 
       <div className="flex flex-1 h-[calc(100vh-5rem)] overflow-hidden z-10 relative">
         <main className="flex-1 min-w-0 h-full relative">

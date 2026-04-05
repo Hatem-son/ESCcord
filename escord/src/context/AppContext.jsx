@@ -23,6 +23,12 @@ export function AppProvider({ children }) {
   // Voice engine states
   const [connectedVoiceChannel, setConnectedVoiceChannel] = useState(null)
   
+  // Call dialing states
+  const [outgoingCall, setOutgoingCall] = useState(null)
+  
+  // Global Presence State
+  const [onlineUserIds, setOnlineUserIds] = useState([])
+  
   // The global voice engine runs persistently!
   const voiceState = useVoice(connectedVoiceChannel?.id)
 
@@ -37,13 +43,30 @@ export function AppProvider({ children }) {
     setConnectedVoiceChannel(null)
   }
 
-  // Fetch groups when user logs in
+  // Fetch groups and setup presence when user logs in
   useEffect(() => {
     if (!user) {
       setUserGroups([])
       setLoadingGroups(false)
+      setOnlineUserIds([])
       return
     }
+
+    // Global Presence Setup
+    const presenceChannel = supabase.channel('global_presence', {
+      config: { presence: { key: user.id } },
+    })
+
+    presenceChannel.on('presence', { event: 'sync' }, () => {
+      const state = presenceChannel.presenceState()
+      setOnlineUserIds(Object.keys(state))
+    })
+
+    presenceChannel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await presenceChannel.track({ online_at: new Date().toISOString() })
+      }
+    })
 
     const fetchGroups = async () => {
       setLoadingGroups(true)
@@ -71,10 +94,6 @@ export function AppProvider({ children }) {
       } catch (e) {}
 
       setUserGroups(parsedGroups)
-      // Auto-select first group if none selected
-      if (parsedGroups.length > 0 && !currentGroup) {
-        setCurrentGroup(parsedGroups[0])
-      }
       
       setLoadingGroups(false)
     }
@@ -88,14 +107,19 @@ export function AppProvider({ children }) {
       })
       .subscribe()
 
-    return () => supabase.removeChannel(groupSub)
-  }, [user, currentGroup])
+    return () => {
+      supabase.removeChannel(groupSub)
+      supabase.removeChannel(presenceChannel)
+    }
+  }, [user])
 
   // Fetch channels when group changes
   useEffect(() => {
     if (!currentGroup) {
       setGroupChannels([])
-      setCurrentChannel(null)
+      // Only clear the channel if it's a server channel. Prevents killing DM channels
+      // when we set currentGroup to null to enter the DM view.
+      setCurrentChannel(prev => (prev?.is_dm ? prev : null))
       return
     }
 
@@ -151,7 +175,10 @@ export function AppProvider({ children }) {
       connectedVoiceChannel,
       handleJoinVoice,
       handleLeaveVoice,
-      voiceState
+      voiceState,
+      outgoingCall,
+      setOutgoingCall,
+      onlineUserIds
     }}>
       {children}
     </AppContext.Provider>

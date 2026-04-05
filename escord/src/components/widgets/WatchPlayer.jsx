@@ -293,8 +293,25 @@ export function WatchPlayer({ session, viewers, updateSession, addToQueue, remov
 
       <div className="flex-1 flex flex-col p-4">
         {/* PLAYER AREA */}
-        <div className="w-full max-w-4xl mx-auto">
-          <div className="youtube-embed relative group shadow-[0_0_40px_rgba(139,92,246,0.1)]">
+        <div className="w-full max-w-4xl mx-auto relative">
+          
+          {/* Ambilight Effect */}
+          {videoData?.thumbnail && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: session?.is_playing ? 0.8 : 0.4 }}
+              transition={{ duration: 2 }}
+              className="absolute inset-0 z-0 blur-[60px] scale-[1.05] pointer-events-none"
+              style={{
+                backgroundImage: `url(${videoData.thumbnail})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                filter: 'blur(80px) saturate(200%) brightness(1.2)'
+              }}
+            />
+          )}
+
+          <div className="youtube-embed relative z-10 group shadow-[0_0_50px_rgba(0,0,0,0.8)] border border-white/5 rounded-2xl overflow-hidden">
             <YouTube
               videoId={session.yt_video_id}
               opts={{

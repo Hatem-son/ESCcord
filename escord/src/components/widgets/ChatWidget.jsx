@@ -3,6 +3,7 @@ import { MessageList } from '../chat/MessageList'
 import { MessageInput } from '../chat/MessageInput'
 import { useMessages } from '../../hooks/useMessages'
 import { useAppContext } from '../../context/AppContext'
+import { EmojiPicker } from '../chat/EmojiPicker'
 
 export function ChatWidget() {
   const { currentChannel } = useAppContext()
@@ -10,15 +11,28 @@ export function ChatWidget() {
   const { messages, sendMessage, addReaction } = useMessages(currentChannel?.id)
   
   const [replyTo, setReplyTo] = useState(null)
+  const [reactionTarget, setReactionTarget] = useState(null)
 
   const handleSendMessage = async (content, file = null) => {
     await sendMessage(content, replyTo?.id, file)
     setReplyTo(null)
   }
 
-  const handleReact = async (message) => {
-    // Basic mock reaction add for UI demo. Real implementation would open emoji picker.
-    await addReaction(message.id, '👍')
+  const handleReactClick = (e, message) => {
+    if (!e) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    setReactionTarget({
+      message,
+      // Attempt to place it near the button without overflowing
+      position: { top: rect.bottom + 5, right: window.innerWidth - rect.right - 20 }
+    })
+  }
+
+  const handleSelectEmoji = async (emoji) => {
+    if (reactionTarget) {
+      await addReaction(reactionTarget.message.id, emoji)
+    }
+    setReactionTarget(null)
   }
 
   if (!currentChannel || currentChannel.type !== 'text') {
@@ -40,8 +54,16 @@ export function ChatWidget() {
         messages={messages} 
         channelId={currentChannel.id}
         onReply={(msg) => setReplyTo(msg)}
-        onReact={handleReact}
+        onReactClick={handleReactClick}
       />
+      
+      {reactionTarget && (
+        <EmojiPicker 
+          onSelect={handleSelectEmoji}
+          onClose={() => setReactionTarget(null)}
+          position={reactionTarget.position}
+        />
+      )}
 
       {/* Input Area */}
       <div className="flex-shrink-0 bg-transparent relative pb-2 pt-1">

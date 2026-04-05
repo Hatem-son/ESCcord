@@ -39,31 +39,44 @@ export function VoiceRoom({
   // Participants mapping
   const displayParticipants = otherParticipants
 
+  // Detect who is screen sharing
+  const remoteSharingParticipant = displayParticipants.find(p => p.stream && p.stream.getVideoTracks().length > 0)
+  const isRemoteSharing = !!remoteSharingParticipant
+  const isAnySharing = (isScreenSharing && screenStream) || isRemoteSharing
+
   return (
     <div className="h-full flex flex-col relative bg-transparent">
       {/* Video / Participant Interface */}
       <div className="flex-1 p-4 overflow-hidden flex flex-col justify-center">
         
-        {isScreenSharing && screenStream ? (
+        {isAnySharing ? (
           <div className="w-full h-full flex flex-col lg:flex-row gap-4">
             {/* Focal Screen Share Tile */}
             <div className="flex-[3] h-full rounded-2xl overflow-hidden shadow-2xl border border-violet-500/30">
-              <ParticipantTile 
-                 participant={{ username: `${profile?.username || 'You'} (Screen)`, avatar: profile?.avatar_color }} 
-                 isLocal={true} 
-                 localStream={screenStream} 
-                 isScreenShare={true}
-              />
+              {isScreenSharing && screenStream ? (
+                <ParticipantTile 
+                  participant={{ username: `${profile?.username || 'You'} (Screen)`, avatar_color: profile?.avatar_color, avatar_url: profile?.avatar_url }} 
+                  isLocal={true} 
+                  localStream={screenStream} 
+                  isScreenShare={true}
+                />
+              ) : remoteSharingParticipant ? (
+                <ParticipantTile 
+                  participant={remoteSharingParticipant} 
+                  isLocal={false} 
+                  isScreenShare={true}
+                />
+              ) : null}
             </div>
             
             {/* Shrunk Participant Rail */}
             <div className="flex-1 flex lg:flex-col gap-4 overflow-auto min-w-[200px] bg-black/20 p-2 rounded-2xl border border-white/5">
               {inRoom && (
                 <div className="h-[150px] flex-shrink-0">
-                  <ParticipantTile participant={{ username: profile?.username || 'You', avatar: profile?.avatar_color }} isLocal={true} localStream={localStream} />
+                  <ParticipantTile participant={{ username: profile?.username || 'You', avatar_color: profile?.avatar_color, avatar_url: profile?.avatar_url }} isLocal={true} localStream={localStream} />
                 </div>
               )}
-              {displayParticipants.map(p => (
+              {displayParticipants.filter(p => p.id !== remoteSharingParticipant?.id).map(p => (
                 <div key={p.id} className="h-[150px] flex-shrink-0">
                   <ParticipantTile participant={p} isLocal={false} />
                 </div>
@@ -77,7 +90,7 @@ export function VoiceRoom({
             {/* Local Participant (Only if truly in room) */}
             {inRoom && (
               <ParticipantTile 
-                participant={{ username: profile?.username || 'You', avatar: profile?.avatar_color }} 
+                participant={{ username: profile?.username || 'You', avatar_color: profile?.avatar_color, avatar_url: profile?.avatar_url }} 
                 isLocal={true} 
                 localStream={localStream} 
               />

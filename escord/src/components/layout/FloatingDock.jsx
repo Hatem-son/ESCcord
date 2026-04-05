@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { UserPlus, Settings, MessageSquare, LogOut, Mic, MicOff, Headphones, PhoneOff, MonitorUp, MonitorOff, Bot } from 'lucide-react'
+import { UserPlus, Settings, MessageSquare, LogOut, Mic, MicOff, Headphones, PhoneOff, MonitorUp, MonitorOff, Bot, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useAppContext } from '../../context/AppContext'
@@ -10,6 +10,7 @@ import { AddFriendModal } from '../social/AddFriendModal'
 import { FriendRequests } from '../social/FriendRequests'
 import { StreamSettingsModal } from '../voice/StreamSettingsModal'
 import { ProfileCard } from '../social/ProfileCard'
+import { SettingsModal } from '../ui/SettingsModal'
 
 export function FloatingDock() {
   const { user, profile, signOut } = useAuth()
@@ -30,12 +31,13 @@ export function FloatingDock() {
   const [isRequestsOpen, setIsRequestsOpen] = useState(false)
   const [isStreamModalOpen, setIsStreamModalOpen] = useState(false)
   const [isMyProfileOpen, setIsMyProfileOpen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   
   // Hardware States
   // Now derived directly from the global voiceEngine
   const micMuted = voiceState?.isMuted || false;
   const isScreenSharing = voiceState?.isScreenSharing || false;
-  const deafened = false; // Add global deafen tracking later if needed
+  const deafened = voiceState?.isDeafened || false;
 
   useEffect(() => {
     if (!user) return
@@ -100,11 +102,15 @@ export function FloatingDock() {
         <div className="flex items-center gap-3 pr-4 md:border-r border-white/10">
           <button 
             onClick={() => setIsMyProfileOpen(true)}
-            className="w-10 h-10 rounded-full flex-shrink-0 border border-white/20 shadow-md cursor-pointer hover:border-white/50 transition-colors" 
+            className="w-10 h-10 rounded-full flex-shrink-0 border border-white/20 shadow-md cursor-pointer hover:border-white/50 transition-colors bg-cover bg-center overflow-hidden flex items-center justify-center relative" 
             style={{ backgroundColor: profile?.avatar_color || '#10b981' }} 
             title="My Profile"
           >
-             <span className="font-bold text-white uppercase">{profile?.username?.charAt(0) || 'U'}</span>
+             {profile?.avatar_url ? (
+               <img src={profile.avatar_url} className="w-full h-full object-cover" alt="Profile" />
+             ) : (
+               <span className="font-bold text-white uppercase">{profile?.username?.charAt(0) || 'U'}</span>
+             )}
           </button>
           
           <div className="flex flex-col min-w-0 pr-2 hidden md:flex">
@@ -117,7 +123,7 @@ export function FloatingDock() {
           </div>
           
           <button 
-            onClick={() => alert("Settings Page: To be implemented!")}
+            onClick={() => setIsSettingsOpen(true)}
             className="w-8 h-8 rounded-lg flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white transition-colors cursor-pointer relative z-50" 
             title="Settings"
           >
@@ -144,11 +150,10 @@ export function FloatingDock() {
           <button 
             onClick={() => {
               setCurrentGroup(null)
-              setIsRequestsOpen(!isRequestsOpen)
             }}
             className={cn(
               "w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-110 relative",
-              !currentGroup ? "bg-[#8b5cf6] text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]" : "bg-white/5 hover:bg-white/10 text-white/70 hover:text-white"
+              !currentGroup && !isRequestsOpen ? "bg-[#8b5cf6] text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]" : "bg-white/5 hover:bg-white/10 text-white/70 hover:text-white"
             )}
             title="Direct Messages"
           >
@@ -198,10 +203,10 @@ export function FloatingDock() {
                 </button>
 
                 <button 
-                  onClick={() => {}} // Deafen toggle
+                  onClick={() => voiceState?.toggleDeafen()}
                   className={cn(
                     "w-9 h-9 rounded-full flex items-center justify-center transition-all",
-                    deafened ? "bg-red-500/10 text-red-400 hover:bg-red-500/20" : "text-white/70 hover:bg-white/10 hover:text-white"
+                    deafened ? "bg-red-500/10 text-red-400 hover:bg-red-500/20 shadow-[0_0_12px_rgba(239,68,68,0.3)]" : "text-white/70 hover:bg-white/10 hover:text-white"
                   )}
                   title={deafened ? "Undeafen" : "Deafen"}
                 >
@@ -279,6 +284,23 @@ export function FloatingDock() {
             return (
               <motion.button
                 key={friend.id}
+                onClick={() => {
+                  if (!friend.profile) return;
+                  const profileId = friend.profile?.id;
+                  if (!profileId || !user?.id) return;
+                  const [a, b] = [user.id, profileId].sort();
+                  const str = a.replace(/-/g, '').substring(0, 16) + b.replace(/-/g, '').substring(0, 16);
+                  const dmChannelId = `${str.slice(0,8)}-${str.slice(8,12)}-${str.slice(12,16)}-${str.slice(16,20)}-${str.slice(20)}`;
+                  setCurrentGroup(null)
+                  setCurrentChannel({
+                    id: dmChannelId,
+                    name: friend.profile.username,
+                    type: 'text',
+                    is_dm: true,
+                    friend_id: profileId,
+                    friend_profile: friend.profile
+                  })
+                }}
                 whileHover={{ scale: 1.15, y: -4 }}
                 whileTap={{ scale: 0.95 }}
                 className="relative group w-12 h-12 rounded-full overflow-hidden border-2 border-transparent hover:border-[#8b5cf6] transition-all"
@@ -288,7 +310,11 @@ export function FloatingDock() {
                 }}
                 title={name}
               >
-                <span className="font-bold text-white uppercase">{name.charAt(0)}</span>
+                <span className="font-bold text-white uppercase">{friend.profile?.avatar_url ? "" : name.charAt(0)}</span>
+                
+                {friend.profile?.avatar_url && (
+                  <img src={friend.profile.avatar_url} className="absolute inset-0 w-full h-full object-cover" alt={name} />
+                )}
                 
                 {/* Lighting Status Indicator */}
                 <div 
@@ -326,11 +352,6 @@ export function FloatingDock() {
         isOpen={isMyProfileOpen} 
         onClose={() => setIsMyProfileOpen(false)} 
       />
-      
-      <StreamSettingsModal 
-        isOpen={isStreamModalOpen} 
-        onClose={() => setIsStreamModalOpen(false)} 
-      />
 
       <AddFriendModal isOpen={isAddFriendOpen} onClose={() => setIsAddFriendOpen(false)} />
       
@@ -338,6 +359,11 @@ export function FloatingDock() {
         isOpen={isStreamModalOpen} 
         onClose={() => setIsStreamModalOpen(false)} 
         onGoLive={(config) => voiceState?.toggleScreenShare(config)}
+      />
+
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
       />
     </>
   )

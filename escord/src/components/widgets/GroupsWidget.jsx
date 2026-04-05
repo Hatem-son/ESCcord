@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Compass, Gamepad2 } from 'lucide-react'
+import { Plus, Compass, Gamepad2, MessageSquare } from 'lucide-react'
 import { useAppContext } from '../../context/AppContext'
 import { CreateGroupModal } from '../social/CreateGroupModal'
 import { cn } from '../../lib/utils'
@@ -26,13 +26,30 @@ export function GroupsWidget({ iconsOnly = false }) {
       )}
       
       {iconsOnly && (
-        <button 
-          onClick={() => setIsAddOpen(true)}
-          className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/5 hover:bg-[#10b981] text-[#10b981] hover:text-white transition-all hover:scale-110 mb-4"
-          title="Create Server"
-        >
-          <Plus className="w-6 h-6" />
-        </button>
+        <>
+          {/* Home / DMs Button */}
+          <button 
+            onClick={() => setCurrentGroup(null)}
+            className={cn(
+               "w-12 h-12 rounded-2xl flex items-center justify-center transition-all hover:scale-110 mb-2 shadow-lg",
+               !currentGroup ? "bg-[#8b5cf6] text-white shadow-[0_0_20px_rgba(139,92,246,0.4)]" : "bg-white/5 hover:bg-[#8b5cf6]/50 text-white/50 hover:text-white"
+            )}
+            title="Direct Messages"
+          >
+            <MessageSquare className="w-6 h-6" />
+          </button>
+          
+          <div className="w-8 h-0.5 bg-white/10 rounded-full mb-3 mt-1 mx-auto" />
+
+          {/* Create Server Button */}
+          <button 
+            onClick={() => setIsAddOpen(true)}
+            className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/5 hover:bg-[#10b981] text-[#10b981] hover:text-white transition-all hover:scale-110 mb-4"
+            title="Create Server"
+          >
+            <Plus className="w-6 h-6" />
+          </button>
+        </>
       )}
 
       <div className={cn("flex flex-col gap-3", iconsOnly ? "items-center w-full" : "")}>

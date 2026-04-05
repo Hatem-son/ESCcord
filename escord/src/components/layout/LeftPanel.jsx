@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 
 export function LeftPanel() {
-  const { currentGroup, groupChannels, currentChannel, setCurrentChannel, connectedVoiceChannel, voiceState } = useAppContext()
+  const { currentGroup, groupChannels, currentChannel, setCurrentChannel, connectedVoiceChannel, voiceState, onlineUserIds } = useAppContext()
   const { profile, user } = useAuth() // Grab profile here for passing down if needed, but it's simpler to just let ChannelItem import useAuth
   const [isCreatingChannel, setIsCreatingChannel] = useState(false)
   const [newChannelName, setNewChannelName] = useState('')
@@ -65,12 +65,18 @@ export function LeftPanel() {
               <div className="space-y-0.5">
                 {friends.map(f => {
                   const friendProfile = f.friend
-                  if (!friendProfile) return null
-                  const dmChannelId = [user?.id, friendProfile.id].sort().join('_')
-                  
+                  if (!friendProfile || !user?.id) return null
+                  const profileId = friendProfile.id;
+                  const [a, b] = [user.id, profileId].sort();
+                  const str = a.replace(/-/g, '').substring(0, 16) + b.replace(/-/g, '').substring(0, 16);
+                  const dmChannelId = `${str.slice(0,8)}-${str.slice(8,12)}-${str.slice(12,16)}-${str.slice(16,20)}-${str.slice(20)}`;
+                  const isOnline = onlineUserIds?.includes(friendProfile.id);
+
                   return (
-                    <div 
+                    <motion.div 
                       key={dmChannelId}
+                      whileHover={{ scale: 1.01, x: 2 }}
+                      whileTap={{ scale: 0.98 }}
                       onClick={() => setCurrentChannel({
                         id: dmChannelId,
                         name: friendProfile.username,
@@ -83,12 +89,18 @@ export function LeftPanel() {
                         currentChannel?.id === dmChannelId ? 'bg-white/10 text-white' : 'text-white/50 hover:bg-white/5 hover:text-white'
                       }`}
                     >
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white shadow-[0_0_10px_rgba(0,0,0,0.2)] text-sm flex-shrink-0 relative" style={{ backgroundColor: friendProfile.avatar_color || '#8b5cf6' }}>
-                        {friendProfile.username.charAt(0).toUpperCase()}
-                        <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-black" />
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white shadow-[0_0_10px_rgba(0,0,0,0.2)] text-sm flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: friendProfile.avatar_color || '#8b5cf6' }}>
+                        {friendProfile.avatar_url ? (
+                          <img src={friendProfile.avatar_url} className="w-full h-full object-cover" alt="Avatar" />
+                        ) : (
+                          friendProfile.username.charAt(0).toUpperCase()
+                        )}
+                        <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-black z-10 transition-colors ${
+                          isOnline ? 'bg-green-500' : 'bg-gray-500'
+                        }`} />
                       </div>
-                      <span className="text-sm font-medium truncate leading-tight flex-1">{friendProfile.username}</span>
-                    </div>
+                      <span className={`text-sm font-medium truncate leading-tight flex-1 ${isOnline ? 'text-white' : 'text-white/50'}`}>{friendProfile.username}</span>
+                    </motion.div>
                   )
                 })}
               </div>
@@ -97,7 +109,7 @@ export function LeftPanel() {
         ) : (
           <>
             <div className="mb-6">
-              <div className="flex items-center justify-between group mb-2 pr-1">
+              <div className="flex items-center justify-between group mb-2 pr-1 pl-1">
                 <h3 className="text-xs font-bold text-white/40 uppercase tracking-wider">Text Channels</h3>
                 <button 
                   onClick={() => { setIsCreatingChannel(true); setNewChannelType('text'); }}
@@ -120,7 +132,7 @@ export function LeftPanel() {
             </div>
 
             <div className="mb-6">
-              <div className="flex items-center justify-between group mb-2 pr-1">
+              <div className="flex items-center justify-between group mb-2 pr-1 pl-1">
                 <h3 className="text-xs font-bold text-white/40 uppercase tracking-wider">Voice Channels</h3>
                 <button 
                   onClick={() => { setIsCreatingChannel(true); setNewChannelType('voice'); }}
@@ -187,7 +199,7 @@ function ChannelItem({ type, channel, active, onClick, isConnectedVoice, liveVoi
     // Push ourselves to the list if we're in the room!
     if (liveVoiceState.inRoom) {
       voiceUsers = [
-        { id: 'local', name: profile?.username || 'You', color: profile?.avatar_color || '#3b82f6' },
+        { id: 'local', name: profile?.username || 'You', color: profile?.avatar_color || '#3b82f6', avatar_url: profile?.avatar_url },
         ...baseParticipants
       ]
     } else {
@@ -200,7 +212,9 @@ function ChannelItem({ type, channel, active, onClick, isConnectedVoice, liveVoi
 
   return (
     <div className="group/channel mb-0.5">
-      <div 
+      <motion.div 
+        whileHover={{ scale: 1.01, x: 2 }}
+        whileTap={{ scale: 0.98 }}
         onClick={onClick}
         className={`flex items-center justify-between gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${
           active ? 'bg-white/10 text-white' : 'text-white/50 hover:bg-white/5 hover:text-white'
@@ -220,13 +234,17 @@ function ChannelItem({ type, channel, active, onClick, isConnectedVoice, liveVoi
         {hasVoiceParticipants && (
            <div className="flex -space-x-1 mt-0.5 flex-shrink-0">
              {voiceUsers.map((u, i) => (
-               <div key={i} className="w-4 h-4 rounded-full border border-[#16163a] flex items-center justify-center text-[7px] font-bold text-white shadow-sm" style={{ backgroundColor: u.color, zIndex: 10 - i }}>
-                 {u.name.charAt(0)}
+               <div key={i} className="w-4 h-4 rounded-full border border-[#16163a] flex items-center justify-center text-[7px] font-bold text-white shadow-sm overflow-hidden relative" style={{ backgroundColor: u.color, zIndex: 10 - i }}>
+                 {u.avatar_url ? (
+                   <img src={u.avatar_url} className="w-full h-full object-cover" alt={u.name} />
+                 ) : (
+                   u.name.charAt(0)
+                 )}
                </div>
              ))}
            </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Expanded Voice List */}
       {hasVoiceParticipants && (
@@ -234,7 +252,11 @@ function ChannelItem({ type, channel, active, onClick, isConnectedVoice, liveVoi
            {voiceUsers.map((u, i) => (
              <div key={i} className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-white/5 cursor-pointer group/user">
                <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow-sm relative overflow-hidden" style={{ backgroundColor: u.color }}>
-                 {u.name.charAt(0)}
+                 {u.avatar_url ? (
+                   <img src={u.avatar_url} className="w-full h-full object-cover" alt={u.name} />
+                 ) : (
+                   u.name.charAt(0)
+                 )}
                </div>
                <span className="text-xs text-white/50 group-hover/user:text-white/90 truncate">{u.name}</span>
              </div>

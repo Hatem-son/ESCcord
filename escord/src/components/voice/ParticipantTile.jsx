@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Mic, MicOff } from 'lucide-react'
 
 export function ParticipantTile({ participant, isLocal, localStream, isScreenShare = false }) {
@@ -92,11 +92,32 @@ export function ParticipantTile({ participant, isLocal, localStream, isScreenSha
       {hasVideo ? (
         <video ref={videoRef} autoPlay muted={isLocal} className={`w-full h-full ${isScreenShare ? 'object-contain bg-black' : 'object-cover'}`} />
       ) : (
-        <div 
-          className={`w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold text-white shadow-xl transition-all duration-300 ${isSpeaking ? 'scale-110 shadow-[0_0_30px_rgba(16,185,129,0.5)]' : ''}`}
-          style={{ backgroundColor: participant?.avatar || '#8b5cf6' }}
-        >
-          {participant?.username?.charAt(0).toUpperCase() || '?'}
+        <div className="relative flex items-center justify-center">
+          <AnimatePresence>
+            {isSpeaking && !isMuted && (
+              <>
+                <motion.div 
+                  initial={{ opacity: 0.8, scale: 1 }} 
+                  animate={{ opacity: 0, scale: 1.6 }} 
+                  transition={{ duration: 1.2, repeat: Infinity, ease: "easeOut" }} 
+                  className="absolute w-24 h-24 rounded-full border-[3px] border-[#10b981] z-0" 
+                />
+                <motion.div 
+                  initial={{ opacity: 0.5, scale: 1 }} 
+                  animate={{ opacity: 0, scale: 2.2 }} 
+                  transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut", delay: 0.2 }} 
+                  className="absolute w-24 h-24 rounded-full border-2 border-violet-500 z-0" 
+                />
+              </>
+            )}
+          </AnimatePresence>
+
+          <div 
+            className={`relative z-10 w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold text-white shadow-2xl transition-all duration-300 bg-cover bg-center ${isSpeaking && !isMuted ? 'scale-110 shadow-[0_0_40px_rgba(16,185,129,0.6)]' : ''}`}
+            style={participant?.avatar_url ? { backgroundImage: `url(${participant.avatar_url})` } : { backgroundColor: participant?.avatar_color || '#8b5cf6' }}
+          >
+            {!participant?.avatar_url && (participant?.username?.charAt(0).toUpperCase() || '?')}
+          </div>
         </div>
       )}
 

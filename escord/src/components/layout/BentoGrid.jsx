@@ -5,6 +5,7 @@ import { VoiceWidget } from '../widgets/VoiceWidget'
 import { ActivitiesLauncher } from '../widgets/ActivitiesLauncher'
 import { GroupsWidget } from '../widgets/GroupsWidget'
 import { LeftPanel } from './LeftPanel'
+import { MemberList } from '../chat/MemberList'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppContext } from '../../context/AppContext'
 import { useAuth } from '../../context/AuthContext'
@@ -14,7 +15,7 @@ import { Phone, Video } from 'lucide-react'
 // Subcomponent for DM operations
 function DMCallActions({ currentChannel }) {
   const { user } = useAuth()
-  const { handleJoinVoice, voiceState, setCurrentChannel } = useAppContext()
+  const { setOutgoingCall } = useAppContext()
 
   const handleCall = async (type) => {
     const friendId = currentChannel.friend_id
@@ -22,24 +23,22 @@ function DMCallActions({ currentChannel }) {
 
     const callChannel = { ...currentChannel, type: 'voice', name: 'Private Call' }
     
-    setCurrentChannel(callChannel)
-    handleJoinVoice(callChannel)
-    
-    if (type === 'video') {
-       setTimeout(() => { 
-         voiceState?.joinRoom(callChannel.id); 
-         if (!voiceState?.isScreenSharing) voiceState?.toggleScreenShare({ video: true }) 
-       }, 50)
-    } else {
-       setTimeout(() => voiceState?.joinRoom(callChannel.id), 50)
-    }
-
-    await supabase.from('call_signals').insert({
+    // Create the signal ringing entry
+    const { data } = await supabase.from('call_signals').insert({
       caller_id: user.id,
       receiver_id: friendId,
       channel_id: callChannel.id,
       status: 'ringing'
-    })
+    }).select().single()
+
+    if (data) {
+       setOutgoingCall({
+         callChannel,
+         signalId: data.id,
+         friendProfile: currentChannel.friend_profile,
+         type
+       })
+    }
   }
 
   if (!currentChannel?.is_dm) return null;
@@ -198,8 +197,22 @@ export function BentoGrid() {
           <div className="w-0.5 h-16 bg-white/10 group-hover:bg-[#8b5cf6] rounded-full transition-colors" />
         </div>
 
-        {/* COL 3: Activities Launcher */}
-        <div style={{ width: `${actWidth}%` }} className="flex-shrink-0 h-full flex flex-col">
+        {/* COL 3: Activities Launcher & Members */}
+        <div style={{ width: `${actWidth}%` }} className="flex-shrink-0 h-full flex flex-col gap-2">
+          
+          {/* Members Panel - Only shown in groups/servers */}
+          {!currentChannel?.is_dm && currentGroup && (
+            <WidgetWrapper 
+              id="widget-members" 
+              title="Server Members" 
+              icon="👥"
+              className="flex-[1.5] p-0 overflow-hidden"
+            >
+              <MemberList groupId={currentGroup.id} className="w-full" />
+            </WidgetWrapper>
+          )}
+
+          {/* Activities Launcher */}
           <WidgetWrapper 
             id="widget-activities" 
             title="Activities" 

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Smile, Paperclip, Send, X, Loader2, FileText, Image as ImageIcon } from 'lucide-react'
 import EmojiPicker, { Theme } from 'emoji-picker-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import confetti from 'canvas-confetti'
 import { usePresence } from '../../hooks/usePresence'
 
 export function MessageInput({ channelId, onSendMessage, replyTo, onCancelReply }) {
@@ -56,6 +57,18 @@ export function MessageInput({ channelId, onSendMessage, replyTo, onCancelReply 
     clearAttachment()
     setIsUploading(false)
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
+    
+    // Aesthetic send animation if it's not a reply!
+    if (!replyTo) {
+      confetti({
+        particleCount: 50,
+        spread: 45,
+        origin: { y: 0.9, x: 0.8 },
+        colors: ['#8b5cf6', '#6366f1', '#ec4899'],
+        gravity: 1.5,
+        ticks: 100
+      })
+    }
   }
 
   return (
@@ -169,13 +182,15 @@ export function MessageInput({ channelId, onSendMessage, replyTo, onCancelReply 
           >
             <Smile className="w-5 h-5" />
           </button>
-          <button 
+          <motion.button 
             type="submit" 
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
             disabled={(!content.trim() && !attachment) || isUploading}
             className="send-btn"
           >
             {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-0.5" />}
-          </button>
+          </motion.button>
         </div>
       </form>
       <div className="absolute right-6 bottom-[-5px] text-[10px] text-white/30 font-medium tracking-wider">

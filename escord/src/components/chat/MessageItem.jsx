@@ -4,15 +4,17 @@ import { Reply, SmilePlus, Edit2, Trash2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { useAuth } from '../../context/AuthContext'
 
-export function MessageItem({ message, onReply, onReact }) {
+export function MessageItem({ message, onReply, onReactClick }) {
   const { user } = useAuth()
   const isOwn = user?.id === message.user_id
 
   // Hover action bar: Reply, React, Edit, Delete
   return (
     <motion.div 
+      layout
       initial={{ opacity: 0, x: -8, scale: 0.97 }}
       animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 20, scale: 0.9, transition: { duration: 0.2 } }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       className="message-row group relative"
     >
@@ -90,7 +92,7 @@ export function MessageItem({ message, onReply, onReact }) {
 
       {/* Hover Action Bar */}
       <div className="absolute right-4 -top-3 opacity-0 group-hover:opacity-100 transition-opacity bg-[#09090b] border border-white/10 rounded-lg shadow-lg flex items-center overflow-hidden">
-        <ActionBarBtn icon={<SmilePlus />} onClick={() => onReact && onReact(message)} />
+        <ActionBarBtn icon={<SmilePlus />} onClick={(e) => onReactClick && onReactClick(e, message)} />
         <ActionBarBtn icon={<Reply />} onClick={() => onReply && onReply(message)} />
         {isOwn && (
           <>

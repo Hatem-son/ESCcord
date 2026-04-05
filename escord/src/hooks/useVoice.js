@@ -8,6 +8,7 @@ export function useVoice(channelId) {
   const [inRoom, setInRoom] = useState(false)
   const [participants, setParticipants] = useState([])
   const [isMuted, setIsMuted] = useState(false)
+  const [isDeafened, setIsDeafened] = useState(false)
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [localStream, setLocalStream] = useState(null)
   const [screenStream, setScreenStream] = useState(null)
@@ -15,6 +16,7 @@ export function useVoice(channelId) {
   const peerRef = useRef(null)
   const callsRef = useRef({})
   const channelRef = useRef(null)
+  const deafenRef = useRef(false)
 
   const joinRoom = useCallback(async (explicitChannelId) => {
     const targetChannel = explicitChannelId || channelId;
@@ -22,12 +24,17 @@ export function useVoice(channelId) {
         // Fallback UI Simulation if authentication fails
     const currentUser = user || { id: 'mock-user' };
     try {
+      const savedInput = localStorage.getItem('escord_audio_in')
+      
+      const audioConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        ...(savedInput && savedInput !== 'default' ? { deviceId: { exact: savedInput } } : {})
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }, 
+        audio: audioConstraints, 
         video: false 
       })
       setLocalStream(stream)
@@ -88,19 +95,38 @@ export function useVoice(channelId) {
       } catch (e) {
         // Extremely restrictive environments
       }
-      setParticipants([
-         { id: 'mock1', username: 'Shadow (Mock)', avatar: '#10b981' },
-         { id: 'mock2', username: 'Oracle (Mock)', avatar: '#ef4444' }
-      ])
+      setParticipants([])
     }
   }, [user, channelId, profile])
 
   const setupCallEvents = (call, peerId) => {
     call.on('stream', (remoteStream) => {
+      // Forcefully mute incoming if we are deafened right now
+      if (deafenRef.current) {
+        remoteStream.getAudioTracks().forEach(t => t.enabled = false)
+      }
+      // Attach the stream directly to the call object for global access
+      call.remoteStream = remoteStream
       setParticipants(prev => prev.map(p => 
         p.id === peerId ? { ...p, stream: remoteStream } : p
       ))
     })
+
+    // Listen for tracks added MID-CALL (like Screen Sharing video tracks)
+    if (call.peerConnection) {
+      call.peerConnection.addEventListener('track', (event) => {
+        if (event.track.kind === 'video' && call.remoteStream) {
+          call.remoteStream.addTrack(event.track)
+          // Clone stream object to force React to re-render the ParticipantTile and VoiceRoom grid
+          const enhancedStream = new MediaStream(call.remoteStream.getTracks())
+          call.remoteStream = enhancedStream
+          setParticipants(prev => prev.map(p => 
+            p.id === peerId ? { ...p, stream: enhancedStream } : p
+          ))
+        }
+      })
+    }
+
     call.on('close', () => {
       delete callsRef.current[peerId]
       setParticipants(prev => prev.map(p => 
@@ -130,6 +156,26 @@ export function useVoice(channelId) {
         setIsMuted(!audioTrack.enabled)
       }
     }
+  }
+
+  const toggleDeafen = () => {
+    const newState = !isDeafened
+    setIsDeafened(newState)
+    deafenRef.current = newState
+    
+    // Automatically mute mic as well (Discord logic) when deafening
+    if (newState && !isMuted) {
+      toggleMute()
+    }
+    
+    // Ensure all current incoming audio streams are disabled
+    Object.values(callsRef.current).forEach(call => {
+      if (call.remoteStream) {
+        call.remoteStream.getAudioTracks().forEach(t => {
+          t.enabled = !newState
+        })
+      }
+    })
   }
 
   const toggleScreenShare = async (config = null) => {
@@ -178,6 +224,7 @@ export function useVoice(channelId) {
   return {
     inRoom, joinRoom, leaveRoom, participants, 
     isMuted, toggleMute, 
+    isDeafened, toggleDeafen,
     isScreenSharing, toggleScreenShare,
     localStream, screenStream
   }

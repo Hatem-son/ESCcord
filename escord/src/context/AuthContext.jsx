@@ -51,6 +51,24 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const updateProfile = async (updates) => {
+    if (!user) return { error: new Error("Not logged in") }
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id)
+
+      if (error) throw error
+      // Refresh local profile
+      await fetchProfile(user.id)
+      return { success: true }
+    } catch (err) {
+      console.error('Error updating profile:', err)
+      return { error: err }
+    }
+  }
+
   const signUp = async ({ email, username, password, avatar_color }) => {
     const escord_id = Math.floor(1000 + Math.random() * 9000).toString()
 
@@ -107,7 +125,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, signUp, signIn, signOut, loading }}>
+    <AuthContext.Provider value={{ session, user, profile, signUp, signIn, signOut, updateProfile, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   )
